@@ -646,7 +646,14 @@ export class SyncAgent {
         data["accounts-server"],
         data.code,
       );
-
+      console.log(">>> OAUTH TOKENS RESPONSE", responseTokens);
+      logger.debug(
+        loggingUtil.composeOperationalMessage(
+          "OPERATION_AUTHTOKENFROMCODE_RESPONSE",
+          correlationKey,
+          JSON.stringify(responseTokens),
+        ),
+      );
       await (hullClient as any).utils.settings.update({
         zoho_location: data.location,
         zoho_accounts_server: data["accounts-server"],
@@ -667,6 +674,7 @@ export class SyncAgent {
         ),
       );
     } catch (error) {
+      console.error(">>> ERROR OAUTH FLOW", error);
       const logPayload = loggingUtil.composeErrorMessage(
         "OPERATION_AUTHTOKENFROMCODE_UNHANDLED",
         cloneDeep(error),
