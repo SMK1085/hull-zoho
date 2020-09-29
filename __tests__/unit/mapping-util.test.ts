@@ -34,6 +34,8 @@ describe("MappingUtil", () => {
       account_synchronized_segments: [],
       contact_synchronized_segments: [],
       identity_in_lead: [],
+      identity_in_contact: [],
+      identity_in_account: [],
       lead_synchronized_segments: [],
       mapping_in_account: [],
       mapping_in_contact: [],
