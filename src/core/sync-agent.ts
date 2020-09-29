@@ -99,101 +99,143 @@ export class SyncAgent {
       );
     }
 
+    const logger = this.diContainer.resolve<Logger>("logger");
+    const loggingUtil = this.diContainer.resolve<LoggingUtil>("loggingUtil");
     const correlationKey = this.diContainer.resolve<string>("correlationKey");
     const connectorId = this.diContainer.resolve<string>("hullAppId");
-    const cachingUtil = this.diContainer.resolve<CachingUtil>("cachingUtil");
-    const serviceClient = this.diContainer.resolve<ServiceClient>(
-      "serviceClient",
+    const redisClient = this.diContainer.resolve<ConnectorRedisClient>(
+      "redisClient",
     );
-    const metaResponse = await cachingUtil.getCachedApiResponse(
-      `${connectorId}_fields_${module}`,
-      () => serviceClient.getFields({ module }),
-      5 * 60,
-    );
+    const fetchLockKey = `${connectorId}_fetchlock_${module.toLowerCase()}`;
 
-    if (metaResponse.success === false) {
-      throw metaResponse.errorDetails!;
-    }
+    try {
+      const cachingUtil = this.diContainer.resolve<CachingUtil>("cachingUtil");
+      const serviceClient = this.diContainer.resolve<ServiceClient>(
+        "serviceClient",
+      );
+      const metaResponse = await cachingUtil.getCachedApiResponse(
+        `${connectorId}_fields_${module}`,
+        () => serviceClient.getFields({ module }),
+        5 * 60,
+      );
 
-    const mappingUtil = this.diContainer.resolve<MappingUtil>("mappingUtil");
-    const hullClient = this.diContainer.resolve<IHullClient>("hullClient");
-
-    const hasModifiedTimestamp =
-      isNil(
-        metaResponse.data!.fields.find((f) => f.api_name === "Modified_Time"),
-      ) === false;
-
-    // We now have the metadata, so we can start looping over the records in Zoho
-    let hasMore: boolean = true;
-    let page: number = 1;
-    const perPage = 200;
-    while (hasMore === true) {
-      const responseList = await serviceClient.listRecords({
-        module,
-        page,
-        per_page: perPage,
-        sort_by: hasModifiedTimestamp ? "Modified_Time" : undefined,
-        sort_order: hasModifiedTimestamp ? "desc" : undefined,
-      });
-
-      if (responseList.success === false) {
-        throw responseList.errorDetails!;
+      if (metaResponse.success === false) {
+        throw metaResponse.errorDetails!;
       }
 
-      hasMore = responseList.data!.info.more_records;
-      await asyncForEach(
-        responseList.data!.data,
-        async (record: Schema$ZohoRecord) => {
-          const hullIdent = mappingUtil.mapZohoRecordToHullIdent(
-            module,
-            record,
-            metaResponse.data!.fields,
-            correlationKey,
-          );
-          console.log(">>> Hull Ident", hullIdent);
-          if (isNil(hullIdent)) {
-            // Log a skip, since we know undefined here means a required identifier is missing.
-            const hullObjectType = module === "accounts" ? "account" : "user";
-            hullClient.logger.info(`incoming.${hullObjectType}.skip`, {
-              reason: `One of the required identity fields is not present on the Zoho record with id '${record.id}'.`,
-            });
-          } else {
-            const hullAttribs = mappingUtil.mapZohoRecordToHullAttributes(
-              module,
-              record,
-              metaResponse.data!.fields,
-              correlationKey,
-            );
-            console.log(">>> Hull Attributes", hullAttribs);
-            if (isNil(hullAttribs)) {
-              // TODO: Log an error
-              if (module === "accounts") {
-                hullClient
-                  .asAccount(hullIdent as any)
-                  .logger.error("incoming.account.error", {
-                    message:
-                      "Failed to map Zoho record fields to Hull Account attributes. Please make sure you mapping is correct.",
-                  });
-              } else {
-                hullClient
-                  .asUser(hullIdent)
-                  .logger.error("incoming.user.error", {
-                    message:
-                      "Failed to map Zoho record fields to Hull User attributes. Please make sure you mapping is correct.",
-                  });
-              }
+      const fetchLock = await redisClient.get(fetchLockKey);
+
+      if (!isNil(fetchLock)) {
+        // TODO: Add logging that we skipped the fetch due to a lock
+        return;
+      }
+
+      redisClient.set(
+        fetchLockKey,
+        { timestamp: DateTime.utc().toISO() },
+        60 * 60 * 2, // Automatic expiration after two hours
+      );
+
+      const mappingUtil = this.diContainer.resolve<MappingUtil>("mappingUtil");
+      const hullClient = this.diContainer.resolve<IHullClient>("hullClient");
+      const maxAgoTimestamp = DateTime.utc().minus({ minutes: 90 });
+
+      const hasModifiedTimestamp =
+        isNil(
+          metaResponse.data!.fields.find((f) => f.api_name === "Modified_Time"),
+        ) === false;
+
+      // We now have the metadata, so we can start looping over the records in Zoho
+      let hasMore: boolean = true;
+      let page: number = 1;
+      const perPage = 200;
+      while (hasMore === true) {
+        const responseList = await serviceClient.listRecords({
+          module,
+          page,
+          per_page: perPage,
+          sort_by: hasModifiedTimestamp ? "Modified_Time" : undefined,
+          sort_order: hasModifiedTimestamp ? "desc" : undefined,
+        });
+
+        if (responseList.success === false) {
+          throw responseList.errorDetails!;
+        }
+
+        hasMore = responseList.data!.info.more_records;
+        await asyncForEach(
+          responseList.data!.data,
+          async (record: Schema$ZohoRecord) => {
+            if (
+              hasModifiedTimestamp &&
+              fetchType === "partail" &&
+              DateTime.fromISO(get(record, "Modified_Time")) < maxAgoTimestamp
+            ) {
+              // No more importing, since we passed the partial threshold
+              hasMore = false;
             } else {
-              if (module === "accounts") {
-                await hullClient
-                  .asAccount(hullIdent as any)
-                  .traits(hullAttribs);
+              const hullIdent = mappingUtil.mapZohoRecordToHullIdent(
+                module,
+                record,
+                metaResponse.data!.fields,
+                correlationKey,
+              );
+              // console.log(">>> Hull Ident", hullIdent);
+              if (isNil(hullIdent)) {
+                // Log a skip, since we know undefined here means a required identifier is missing.
+                const hullObjectType =
+                  module === "accounts" ? "account" : "user";
+                hullClient.logger.info(`incoming.${hullObjectType}.skip`, {
+                  reason: `One of the required identity fields is not present on the Zoho record with id '${record.id}'.`,
+                });
               } else {
-                await hullClient.asUser(hullIdent).traits(hullAttribs);
+                const hullAttribs = mappingUtil.mapZohoRecordToHullAttributes(
+                  module,
+                  record,
+                  metaResponse.data!.fields,
+                  correlationKey,
+                );
+                // console.log(">>> Hull Attributes", hullAttribs);
+                if (isNil(hullAttribs)) {
+                  // TODO: Log an error
+                  if (module === "accounts") {
+                    hullClient
+                      .asAccount(hullIdent as any)
+                      .logger.error("incoming.account.error", {
+                        message:
+                          "Failed to map Zoho record fields to Hull Account attributes. Please make sure you mapping is correct.",
+                      });
+                  } else {
+                    hullClient
+                      .asUser(hullIdent)
+                      .logger.error("incoming.user.error", {
+                        message:
+                          "Failed to map Zoho record fields to Hull User attributes. Please make sure you mapping is correct.",
+                      });
+                  }
+                } else {
+                  if (module === "accounts") {
+                    await hullClient
+                      .asAccount(hullIdent as any)
+                      .traits(hullAttribs);
+                  } else {
+                    await hullClient.asUser(hullIdent).traits(hullAttribs);
+                  }
+                }
               }
             }
-          }
-        },
+          },
+        );
+      }
+    } catch (error) {
+      const logPayload = loggingUtil.composeErrorMessage(
+        "OPERATION_FETCHRECORDS_UNHANDLED",
+        cloneDeep(error),
+        correlationKey,
       );
+      logger.error(logPayload);
+    } finally {
+      await redisClient.delete(fetchLockKey);
     }
   }
 
@@ -605,8 +647,6 @@ export class SyncAgent {
         data.code,
       );
 
-      console.log(responseTokens);
-
       await (hullClient as any).utils.settings.update({
         zoho_location: data.location,
         zoho_accounts_server: data["accounts-server"],
@@ -757,12 +797,14 @@ export class SyncAgent {
             notifications_channelid_lead: `${channelIdLead}`,
           });
         } else {
+          // TODO: Replace with logger implementation
           console.error(
             ">>> Failed to enable lead notifications",
             JSON.stringify(responseEnableLead),
           );
         }
       } else {
+        // TODO: Replace with logger implementation
         console.error(
           ">>> Failed to enable lead notifications",
           responseEnableLead,
@@ -817,12 +859,14 @@ export class SyncAgent {
             notifications_channelid_contact: `${channelIdContact}`,
           });
         } else {
+          // TODO: Replace with logger implementation
           console.error(
             ">>> Failed to enable contact notifications",
             JSON.stringify(responseEnableContact),
           );
         }
       } else {
+        // TODO: Replace with logger implementation
         console.error(
           ">>> Failed to enable contact notifications",
           responseEnableContact,
@@ -879,12 +923,14 @@ export class SyncAgent {
             notifications_channelid_account: `${channelIdAccount}`,
           });
         } else {
+          // TODO: Replace with logger implementation
           console.error(
             ">>> Failed to enable account notifications",
             JSON.stringify(responseEnableAccount),
           );
         }
       } else {
+        // TODO: Replace with logger implementation
         console.error(
           ">>> Failed to enable account notifications",
           responseEnableAccount,
@@ -917,7 +963,5 @@ export class SyncAgent {
         });
       }
     }
-
-    // console.log(">>> Hull App Token", appToken);
   }
 }

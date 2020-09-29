@@ -16,8 +16,7 @@
   "picture": "picture.png",
   "ui": false,
   "settings": [],
-  "private_settings": [
-    {
+  "private_settings": [{
       "name": "identity_in_lead",
       "title": "Incoming Identity",
       "description": "Customize how lead data is routed to Hull User profiles.",
@@ -46,13 +45,11 @@
           }
         }
       },
-      "default": [
-        {
-          "hull": "email",
-          "service": "Email",
-          "required": false
-        }
-      ]
+      "default": [{
+        "hull": "email",
+        "service": "Email",
+        "required": false
+      }]
     },
     {
       "name": "mapping_in_lead",
@@ -67,8 +64,7 @@
         "loadOptions": "/meta/fields/leads/incoming",
         "source": "zoho_lead"
       },
-      "default": [
-        {
+      "default": [{
           "hull": "first_name",
           "service": "First_Name",
           "overwrite": false,
@@ -127,13 +123,11 @@
           }
         }
       },
-      "default": [
-        {
-          "hull": "email",
-          "service": "Email",
-          "required": false
-        }
-      ]
+      "default": [{
+        "hull": "email",
+        "service": "Email",
+        "required": false
+      }]
     },
     {
       "name": "mapping_in_contact",
@@ -148,8 +142,7 @@
         "loadOptions": "/meta/fields/contacts/incoming",
         "source": "zoho_contact"
       },
-      "default": [
-        {
+      "default": [{
           "hull": "first_name",
           "service": "First_Name",
           "overwrite": false,
@@ -210,13 +203,11 @@
           }
         }
       },
-      "default": [
-        {
-          "hull": "domain",
-          "service": "Website",
-          "required": false
-        }
-      ]
+      "default": [{
+        "hull": "domain",
+        "service": "Website",
+        "required": false
+      }]
     },
     {
       "name": "mapping_in_account",
@@ -231,8 +222,7 @@
         "loadOptions": "/meta/fields/accounts/incoming",
         "source": "zoho"
       },
-      "default": [
-        {
+      "default": [{
           "hull": "name",
           "service": "Account_Name",
           "overwrite": false,
@@ -249,8 +239,7 @@
       ]
     }
   ],
-  "json": [
-    {
+  "json": [{
       "name": "oauth",
       "format": "oauth",
       "type": "string",
@@ -305,11 +294,25 @@
       }
     }
   ],
-  "schedules": [
-    {
+  "schedules": [{
       "url": "/status",
       "type": "interval",
       "value": "30"
+    },
+    {
+      "url": "/fetch/leads/partial",
+      "type": "interval",
+      "value": "60"
+    },
+    {
+      "url": "/fetch/contacts/partial",
+      "type": "interval",
+      "value": "60"
+    },
+    {
+      "url": "/fetch/accounts/partial",
+      "type": "interval",
+      "value": "60"
     },
     {
       "url": "/fetch/leads/full",
@@ -328,8 +331,7 @@
     }
   ],
   "subscriptions": [],
-  "settings_sections": [
-    {
+  "settings_sections": [{
       "title": "Authentication",
       "description": "Configure the parameters to authorize the Zoho API.",
       "properties": ["json.oauth"]

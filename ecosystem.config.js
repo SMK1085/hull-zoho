@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: "Hull Societeinfo",
+    name: "Hull Zoho CRM",
     script: "dist/index.js",
     instances: 1,
     autorestart: true,
