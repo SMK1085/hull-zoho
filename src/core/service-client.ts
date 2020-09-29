@@ -39,7 +39,7 @@ export class ServiceClient {
       grant_type: "authorization_code",
       client_id: process.env.ZOHO_CLIENT_ID as string,
       client_secret: process.env.ZOHO_CLIENT_SECRET as string,
-      redirect_uri: "https://hull-zoho.eu.ngrok.io/oauth/callback",
+      redirect_uri: process.env.ZOHO_CALLBACK_URL as string,
       code,
     });
 
