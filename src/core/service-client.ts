@@ -18,7 +18,7 @@ import {
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { ApiUtil } from "../utils/api-util";
 import qs from "qs";
-import { capitalize, identity, omit, pickBy } from "lodash";
+import { capitalize, identity, isNil, omit, pickBy } from "lodash";
 
 export class ServiceClient {
   public readonly apiDomain: string;
@@ -39,7 +39,9 @@ export class ServiceClient {
       grant_type: "authorization_code",
       client_id: process.env.ZOHO_CLIENT_ID as string,
       client_secret: process.env.ZOHO_CLIENT_SECRET as string,
-      redirect_uri: process.env.ZOHO_CALLBACK_URL as string,
+      redirect_uri: isNil(process.env.ZOHO_CALLBACK_URL)
+        ? "https://hull-zoho.eu.ngrok.io/oauth/callback"
+        : process.env.ZOHO_CALLBACK_URL,
       code,
     });
 
