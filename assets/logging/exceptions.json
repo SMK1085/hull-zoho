@@ -1,0 +1,20 @@
+[
+  {
+    "id": "OPERATION_SENDACCOUNTMESSAGES_UNHANDLED",
+    "code": "11-001",
+    "component": "SyncAgent",
+    "message": "Failed to process account messages due to an unhandled error."
+  },
+  {
+    "id": "OPERATION_CONNECTORSTATUS_UNHANDLED",
+    "code": "19-001",
+    "component": "SyncAgent",
+    "message": "Failed to determine the status of the connector due to an unhandled error."
+  },
+  {
+    "id": "OPERATION_WORKER_JOB_UNHANDLED",
+    "code": "30-001",
+    "component": "Worker",
+    "message": "Failed to process job due to an unhandled error."
+  }
+]

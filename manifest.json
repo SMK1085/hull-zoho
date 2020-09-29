@@ -1,0 +1,365 @@
+{
+  "name": "Zoho [BETA]",
+  "tags": [
+    "outgoing",
+    "oneColumn",
+    "batch",
+    "batch-accounts",
+    "smart-notifier"
+  ],
+  "description": "Hull Connector for Zoho",
+  "readme": "readme.md",
+  "tabs": [],
+  "version": "1.0.0",
+  "source": "zoho",
+  "logo": "logo.png",
+  "picture": "picture.png",
+  "ui": false,
+  "settings": [],
+  "private_settings": [
+    {
+      "name": "identity_in_lead",
+      "title": "Incoming Identity",
+      "description": "Customize how lead data is routed to Hull User profiles.",
+      "type": "array",
+      "format": "table",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "title": "Zoho Identifier",
+            "type": "string",
+            "format": "select",
+            "options": {
+              "allowCreate": false,
+              "loadOptions": "/meta/identity/leads/incoming"
+            }
+          },
+          "hull": {
+            "title": "Hull Identifier",
+            "enum": ["external_id", "email"]
+          },
+          "required": {
+            "type": "boolean",
+            "title": "required?",
+            "format": "select"
+          }
+        }
+      },
+      "default": [
+        {
+          "hull": "email",
+          "service": "Email",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "mapping_in_lead",
+      "type": "array",
+      "title": "Incoming Attributes",
+      "format": "traitMapping",
+      "options": {
+        "direction": "incoming",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": true,
+        "loadOptions": "/meta/fields/leads/incoming",
+        "source": "zoho_lead"
+      },
+      "default": [
+        {
+          "hull": "first_name",
+          "service": "First_Name",
+          "overwrite": false,
+          "readOnly": true
+        },
+        {
+          "hull": "last_name",
+          "service": "Last_Name",
+          "overwrite": false,
+          "readOnly": true
+        },
+        {
+          "hull": "traits_zoho_lead/company",
+          "service": "Company"
+        },
+        {
+          "hull": "traits_zoho_lead/last_name",
+          "service": "Last_Name"
+        },
+        {
+          "hull": "traits_zoho_lead/first_name",
+          "service": "First_Name"
+        },
+        {
+          "hull": "traits_zoho_lead/email",
+          "service": "Email"
+        }
+      ]
+    },
+    {
+      "name": "identity_in_contact",
+      "title": "Incoming Identity",
+      "description": "Customize how contact data is routed to Hull User profiles.",
+      "type": "array",
+      "format": "table",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "title": "Zoho Identifier",
+            "type": "string",
+            "format": "select",
+            "options": {
+              "allowCreate": false,
+              "loadOptions": "/meta/identity/contacts/incoming"
+            }
+          },
+          "hull": {
+            "title": "Hull Identifier",
+            "enum": ["external_id", "email"]
+          },
+          "required": {
+            "type": "boolean",
+            "title": "required?",
+            "format": "select"
+          }
+        }
+      },
+      "default": [
+        {
+          "hull": "email",
+          "service": "Email",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "mapping_in_contact",
+      "type": "array",
+      "title": "Incoming Attributes",
+      "format": "traitMapping",
+      "options": {
+        "direction": "incoming",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": true,
+        "loadOptions": "/meta/fields/contacts/incoming",
+        "source": "zoho_contact"
+      },
+      "default": [
+        {
+          "hull": "first_name",
+          "service": "First_Name",
+          "overwrite": false,
+          "readOnly": true
+        },
+        {
+          "hull": "last_name",
+          "service": "Last_Name",
+          "overwrite": false,
+          "readOnly": true
+        },
+        {
+          "hull": "traits_zoho_contact/account",
+          "service": "Account_Name",
+          "overwrite": true,
+          "readOnly": true
+        },
+        {
+          "hull": "traits_zoho_contact/last_name",
+          "service": "Last_Name"
+        },
+        {
+          "hull": "traits_zoho_contact/first_name",
+          "service": "First_Name"
+        },
+        {
+          "hull": "traits_zoho_contact/email",
+          "service": "Email"
+        }
+      ]
+    },
+    {
+      "name": "identity_in_account",
+      "title": "Incoming Identity",
+      "description": "Customize how account data is routed to Hull Account profiles.",
+      "type": "array",
+      "format": "table",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "title": "Zoho Identifier",
+            "type": "string",
+            "format": "select",
+            "options": {
+              "allowCreate": false,
+              "loadOptions": "/meta/identity/accounts/incoming"
+            }
+          },
+          "hull": {
+            "title": "Hull Identifier",
+            "enum": ["external_id", "domain"]
+          },
+          "required": {
+            "type": "boolean",
+            "title": "required?",
+            "format": "select"
+          }
+        }
+      },
+      "default": [
+        {
+          "hull": "domain",
+          "service": "Website",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "mapping_in_account",
+      "type": "array",
+      "title": "Incoming Attributes",
+      "format": "accountTraitMapping",
+      "options": {
+        "direction": "incoming",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": true,
+        "loadOptions": "/meta/fields/accounts/incoming",
+        "source": "zoho"
+      },
+      "default": [
+        {
+          "hull": "name",
+          "service": "Account_Name",
+          "overwrite": false,
+          "readOnly": true
+        },
+        {
+          "hull": "zoho/name",
+          "service": "Account_Name"
+        },
+        {
+          "hull": "zoho/website",
+          "service": "Website"
+        }
+      ]
+    }
+  ],
+  "json": [
+    {
+      "name": "oauth",
+      "format": "oauth",
+      "type": "string",
+      "url": "/oauth"
+    },
+    {
+      "title": "Fetch All Leads",
+      "name": "fetch_all_leads",
+      "format": "button",
+      "url": "/fetch/leads/full",
+      "handler": "fetchAll",
+      "options": {
+        "fireAndForget": true,
+        "confirm": {
+          "action": "fetch",
+          "text": "You are about to pull all Leads from Zoho CRM into Hull. Please make sure you've configured your user identity properly, and that you have the attributes you'd like to fetch configured. Be careful when clicking this multiple times, it can result in long operations. Check out the \"Logs\" tab to track `incoming.user.success` messages as users are ingested.",
+          "button": "Start Fetching Leads",
+          "entity": "users"
+        }
+      }
+    },
+    {
+      "title": "Fetch All Contacts",
+      "name": "fetch_all_contacts",
+      "format": "button",
+      "url": "/fetch/contacts/full",
+      "handler": "fetchAll",
+      "options": {
+        "fireAndForget": true,
+        "confirm": {
+          "action": "fetch",
+          "text": "You are about to pull all Contacts from Zoho CRM into Hull. Please make sure you've configured your user identity properly, and that you have the attributes you'd like to fetch configured. Be careful when clicking this multiple times, it can result in long operations. Check out the \"Logs\" tab to track `incoming.user.success` messages as users are ingested.",
+          "button": "Start Fetching Contacts",
+          "entity": "users"
+        }
+      }
+    },
+    {
+      "title": "Fetch All Accounts",
+      "name": "fetch_all_accounts",
+      "format": "button",
+      "url": "/fetch/accounts/full",
+      "handler": "fetchAll",
+      "options": {
+        "fireAndForget": true,
+        "confirm": {
+          "action": "fetch",
+          "text": "You are about to pull all Accounts from Zoho CRM into Hull. Please make sure you've configured your account identity properly, and that you have the attributes you'd like to fetch configured. Be careful when clicking this multiple times, it can result in long operations. Check out the \"Logs\" tab to track `incoming.account.success` messages as accounts are ingested.",
+          "button": "Start Fetching Accounts",
+          "entity": "accounts"
+        }
+      }
+    }
+  ],
+  "schedules": [
+    {
+      "url": "/status",
+      "type": "interval",
+      "value": "30"
+    },
+    {
+      "url": "/fetch/leads/full",
+      "type": "interval",
+      "value": "1440"
+    },
+    {
+      "url": "/fetch/contacts/full",
+      "type": "interval",
+      "value": "1440"
+    },
+    {
+      "url": "/fetch/accounts/full",
+      "type": "interval",
+      "value": "1440"
+    }
+  ],
+  "subscriptions": [],
+  "settings_sections": [
+    {
+      "title": "Authentication",
+      "description": "Configure the parameters to authorize the Zoho API.",
+      "properties": ["json.oauth"]
+    },
+    {
+      "title": "Leads",
+      "description": "Configure how Zoho Leads and Hull Users are synchronized.",
+      "properties": [
+        "private_settings.identity_in_lead",
+        "private_settings.mapping_in_lead",
+        "json.fetch_all_leads"
+      ]
+    },
+    {
+      "title": "Contacts",
+      "description": "Configure how Zoho Contacts and Hull Users are synchronized.",
+      "properties": [
+        "private_settings.identity_in_contact",
+        "private_settings.mapping_in_contact",
+        "json.fetch_all_contacts"
+      ]
+    },
+    {
+      "title": "Accounts",
+      "description": "Configure how Zoho Accounts and Hull Accounts are synchronized.",
+      "properties": [
+        "private_settings.identity_in_account",
+        "private_settings.mapping_in_account",
+        "json.fetch_all_accounts"
+      ]
+    }
+  ]
+}

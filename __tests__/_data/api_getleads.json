@@ -1,0 +1,96 @@
+{
+  "data": [{
+    "Owner": {
+      "name": "Sven Maschek",
+      "id": "306129000000233001",
+      "email": "sven@hull.io"
+    },
+    "Company": "Acme Inc",
+    "Email": "john.doe@acme.com",
+    "$currency_symbol": "$",
+    "Estimated_MRR": 950,
+    "Last_Activity_Time": "2020-09-27T12:06:38+02:00",
+    "Industry": "Communications",
+    "$state": "save",
+    "Unsubscribed_Mode": null,
+    "$converted": false,
+    "$process_flow": false,
+    "Date_1": "2020-09-27",
+    "Street": null,
+    "Zip_Code": null,
+    "id": "306129000000251001",
+    "$approved": true,
+    "$approval": {
+      "delegate": false,
+      "approve": false,
+      "reject": false,
+      "resubmit": false
+    },
+    "Created_Time": "2020-09-25T16:33:51+02:00",
+    "$editable": true,
+    "City": null,
+    "No_of_Employees": null,
+    "Secret": "topsecret",
+    "State": null,
+    "Country": null,
+    "Created_By": {
+      "name": "Sven Maschek",
+      "id": "306129000000233001",
+      "email": "sven@hull.io"
+    },
+    "Annual_Revenue": null,
+    "Secondary_Email": null,
+    "Description": null,
+    "Decimal_1": 10.5,
+    "Rating": null,
+    "$review_process": {
+      "approve": false,
+      "reject": false,
+      "resubmit": false
+    },
+    "Website": null,
+    "Twitter": "johndoeacme",
+    "Salutation": "Mr.",
+    "Calculated_ARR": 11400,
+    "First_Name": "John",
+    "Full_Name": "Mr. John Doe",
+    "Lead_Status": "Not Contacted",
+    "Record_Image": null,
+    "Modified_By": {
+      "name": "Sven Maschek",
+      "id": "306129000000233001",
+      "email": "sven@hull.io"
+    },
+    "$review": null,
+    "Skype_ID": null,
+    "Incoming_Requests": "1000000",
+    "Phone": null,
+    "Next_Meeting": "2020-09-28T18:00:00+02:00",
+    "Email_Opt_Out": false,
+    "Designation": null,
+    "Modified_Time": "2020-09-27T12:06:38+02:00",
+    "Tracking_ID": "LEAD-1",
+    "Percent_1": 50,
+    "$converted_detail": {},
+    "Unsubscribed_Time": null,
+    "Stripe_ID": "cus_000",
+    "Mobile": null,
+    "$orchestration": false,
+    "Initial_Campaign": {
+      "name": "Test Campaign 1",
+      "id": "306129000000257722"
+    },
+    "Last_Name": "Doe",
+    "$in_merge": false,
+    "Lead_Source": "Advertisement",
+    "Tag": [],
+    "Fax": null,
+    "$approval_state": "approved"
+  }],
+  "info": {
+    "per_page": 200,
+    "count": 1,
+    "page": 1,
+    "more_records": false
+  }
+}
