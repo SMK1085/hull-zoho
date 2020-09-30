@@ -1,5 +1,5 @@
 import { SyncAgent } from "../core/sync-agent";
-import { cloneDeep } from "lodash";
+import { cloneDeep, get, set } from "lodash";
 import { AwilixContainer } from "awilix";
 import { Logger } from "winston";
 import IHullUserUpdateMessage from "../types/user-update-message";
@@ -26,10 +26,18 @@ export const userUpdateHandlerFactory = (
       const syncAgent = new SyncAgent(scope);
 
       if (messages.length > 0) {
-        return syncAgent.sendUserMessages(messages, isBatch);
+        const enrichedMessages = messages.map((m) => {
+          const msg = {
+            ...m,
+          };
+          set(msg, "user.account", get(m, "account", null));
+          return msg;
+        });
+        return syncAgent.sendUserMessages(enrichedMessages, isBatch);
       }
       return Promise.resolve(true);
     } catch (error) {
+      console.error(error);
       if (logger) {
         logger.error({
           code: `ERR-01-001`,

@@ -13,12 +13,10 @@ export const webhookActionFactory = (): RequestHandler => {
       logger = scope.resolve<Logger>("logger");
       correlationKey = scope.resolve<string>("correlationKey");
       const syncAgent = new SyncAgent(scope);
-      console.log(">>> Received webhook", req.body);
       res.status(200).json({ ok: true });
       await syncAgent.handleWebhook(req.body as any);
       return Promise.resolve(true);
     } catch (error) {
-      console.error(error);
       if (logger) {
         logger.error({
           code: `ERR-01-001`,

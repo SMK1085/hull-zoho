@@ -34,6 +34,62 @@ export class MappingUtil {
     this.loggingUtil = options.loggingUtil;
   }
 
+  public mapHullObjectToZohoRecord(
+    hullProfileData: any,
+    module: string,
+    fieldDefs: Schema$ZohoField[],
+    correlationKey?: string,
+  ): { record: Schema$ZohoRecord | undefined; errors: string[] } {
+    let result: { record: Schema$ZohoRecord | undefined; errors: string[] } = {
+      record: undefined,
+      errors: [] as string[],
+    };
+
+    switch (module) {
+      case "leads":
+      case "Leads":
+        result = this.mapHullUserToZohoLead(
+          hullProfileData,
+          fieldDefs,
+          correlationKey,
+        );
+        break;
+      case "contacts":
+      case "Contacts":
+        result = this.mapHullUserToZohoContact(
+          hullProfileData,
+          fieldDefs,
+          correlationKey,
+        );
+        break;
+      case "accounts":
+      case "Accounts":
+        result = this.mapHullAccountToZohoAccount(
+          hullProfileData,
+          fieldDefs,
+          correlationKey,
+        );
+        break;
+      default:
+        this.logger.warn(
+          this.loggingUtil.composeOperationalMessage(
+            "OPERATION_MAPPING_MODULE_UNSUPPORTED",
+            correlationKey,
+            `Unsupported module type '${module}' for mapping Hull Object to Zoho Record.`,
+          ),
+        );
+        result = {
+          record: undefined,
+          errors: [
+            `Unsupported module type '${module}' for mapping Hull Object to Zoho Record.`,
+          ],
+        };
+        break;
+    }
+
+    return result;
+  }
+
   public mapZohoRecordToHullIdent(
     module: string,
     data: Schema$ZohoRecord,
@@ -531,6 +587,313 @@ export class MappingUtil {
         break;
       default:
         result = null;
+        break;
+    }
+
+    return result;
+  }
+
+  private mapHullUserToZohoLead(
+    hullProfileData: any,
+    fieldDefs: Schema$ZohoField[],
+    correlationKey?: string,
+  ): { record: Schema$ZohoRecord | undefined; errors: string[] } {
+    let result = {
+      record: undefined,
+      errors: [] as string[],
+    };
+
+    forEach(this.appSettings.mapping_out_lead, (om) => {
+      // Only handle valid mappings
+      if (!isNil(om.hull) && !isNil(om.service)) {
+        const fieldDef = fieldDefs.find((fd) => {
+          return fd.api_name === om.service;
+        });
+        if (!isNil(fieldDef)) {
+          const zohoValResult = this.mapHullValueToZohoValue(
+            fieldDef,
+            get(hullProfileData, om.hull, null),
+            om.hull,
+          );
+
+          if (zohoValResult.errors.length === 0) {
+            set(result, `record.${om.service}`, zohoValResult.zohoVal);
+          } else {
+            result.errors.push(...zohoValResult.errors);
+          }
+        }
+      }
+    });
+
+    if (
+      !isNil(get(hullProfileData, `traits_${ATTRIBUTE_GROUPS.lead}/id`, null))
+    ) {
+      set(
+        result,
+        "record.id",
+        get(hullProfileData, `traits_${ATTRIBUTE_GROUPS.lead}/id`),
+      );
+    }
+    return result;
+  }
+
+  private mapHullUserToZohoContact(
+    hullProfileData: any,
+    fieldDefs: Schema$ZohoField[],
+    correlationKey?: string,
+  ): { record: Schema$ZohoRecord | undefined; errors: string[] } {
+    let result = {
+      record: undefined,
+      errors: [] as string[],
+    };
+
+    forEach(this.appSettings.mapping_out_contact, (om) => {
+      // Only handle valid mappings
+      if (!isNil(om.hull) && !isNil(om.service)) {
+        const fieldDef = fieldDefs.find((fd) => {
+          return fd.api_name === om.service;
+        });
+        if (!isNil(fieldDef)) {
+          const zohoValResult = this.mapHullValueToZohoValue(
+            fieldDef,
+            get(hullProfileData, om.hull, null),
+            om.hull,
+          );
+
+          if (zohoValResult.errors.length === 0) {
+            set(result, `record.${om.service}`, zohoValResult.zohoVal);
+          } else {
+            result.errors.push(...zohoValResult.errors);
+          }
+        }
+      }
+    });
+
+    if (
+      !isNil(
+        get(hullProfileData, `traits_${ATTRIBUTE_GROUPS.contact}/id`, null),
+      )
+    ) {
+      set(
+        result,
+        "record.id",
+        get(hullProfileData, `traits_${ATTRIBUTE_GROUPS.contact}/id`),
+      );
+    }
+    return result;
+  }
+
+  private mapHullAccountToZohoAccount(
+    hullProfileData: any,
+    fieldDefs: Schema$ZohoField[],
+    correlationKey?: string,
+  ): { record: Schema$ZohoRecord | undefined; errors: string[] } {
+    let result = {
+      record: undefined,
+      errors: [] as string[],
+    };
+
+    forEach(this.appSettings.mapping_out_account, (om) => {
+      // Only handle valid mappings
+      if (!isNil(om.hull) && !isNil(om.service)) {
+        const fieldDef = fieldDefs.find((fd) => {
+          return fd.api_name === om.service;
+        });
+        if (!isNil(fieldDef)) {
+          const zohoValResult = this.mapHullValueToZohoValue(
+            fieldDef,
+            get(hullProfileData, om.hull, null),
+            om.hull,
+          );
+
+          if (zohoValResult.errors.length === 0) {
+            set(result, `record.${om.service}`, zohoValResult.zohoVal);
+          } else {
+            result.errors.push(...zohoValResult.errors);
+          }
+        }
+      }
+    });
+
+    if (!isNil(get(hullProfileData, `${ATTRIBUTE_GROUPS.account}/id`, null))) {
+      set(
+        result,
+        "record.id",
+        get(hullProfileData, `${ATTRIBUTE_GROUPS.account}/id`),
+      );
+    }
+    return result;
+  }
+
+  private mapHullValueToZohoValue(
+    fieldDef: Schema$ZohoField,
+    hullVal: any,
+    hullAttribute: string,
+  ): { zohoVal: any; errors: string[] } {
+    let result = {
+      zohoVal: undefined as any,
+      errors: [] as string[],
+    };
+
+    switch (fieldDef.data_type) {
+      // Handle string values
+      case "email":
+      case "picklist":
+      case "text":
+      case "textarea":
+      case "website":
+      case "lookup":
+        let strVal = hullVal;
+        if (isNil(hullVal)) {
+          // Null and undefined need to be null
+          result.zohoVal = null;
+        } else {
+          if (typeof hullVal !== "string") {
+            strVal = `${hullVal}`;
+          }
+          // Validate the max length
+          if (fieldDef.length >= (strVal as string).length) {
+            if (
+              fieldDef.data_type === "picklist" &&
+              !fieldDef.pick_list_values
+                .map((p) => p.actual_value)
+                .includes(strVal)
+            ) {
+              result.errors.push(
+                `Value '${strVal}' for Hull Attribute '${hullAttribute.replace(
+                  "traits_",
+                  "",
+                )}' is not valid for Picklist Field '${
+                  fieldDef.display_label
+                }' in Zoho. Allowed values are ${fieldDef.pick_list_values
+                  .map((p) => p.actual_value)
+                  .join(", ")}.`,
+              );
+            } else {
+              result.zohoVal = strVal;
+            }
+          } else {
+            result.errors.push(
+              `Value for Hull Attribute '${hullAttribute.replace(
+                "traits_",
+                "",
+              )}' exceeds maximum length of ${fieldDef.length} for 'Field '${
+                fieldDef.display_label
+              }' in Zoho.`,
+            );
+          }
+        }
+
+        break;
+      // Handle floating numbers
+      case "currency":
+      case "double":
+        let numVal = hullVal;
+        if (typeof hullVal === "string") {
+          numVal = parseFloat(hullVal);
+        }
+
+        if (isNaN(numVal) || !isFinite(numVal)) {
+          result.errors.push(
+            `Value for Hull Attribute '${hullAttribute.replace(
+              "traits_",
+              "",
+            )}' mapped to 'Field '${
+              fieldDef.display_label
+            }' in Zoho is not a finite number.`,
+          );
+        } else {
+          result.zohoVal = numVal;
+        }
+
+        break;
+      // Handle integer numbers
+      case "integer":
+      case "bigint":
+        let intVal = hullVal;
+        if (typeof hullVal === "string") {
+          intVal = parseInt(hullVal, 10);
+        }
+
+        if (isNaN(intVal) || !isFinite(intVal)) {
+          result.errors.push(
+            `Value for Hull Attribute '${hullAttribute.replace(
+              "traits_",
+              "",
+            )} mapped to 'Field '${
+              fieldDef.display_label
+            }' in Zoho is not a finite number.`,
+          );
+        } else {
+          result.zohoVal = intVal;
+        }
+        break;
+      // Handle datetime values (note: Zoho cannot handle ms in the ISO string)
+      case "datetime":
+        let dtVal;
+        if (typeof hullVal === "string") {
+          dtVal = DateTime.fromISO(hullVal);
+        } else if (typeof hullVal === "number") {
+          dtVal = DateTime.fromSeconds(hullVal);
+        }
+
+        if (isNil(hullVal)) {
+          result.zohoVal = null;
+        } else if (isNil(dtVal) || dtVal.isValid === false) {
+          result.errors.push(
+            `Value for Hull Attribute '${hullAttribute.replace(
+              "traits_",
+              "",
+            )} mapped to 'Field '${
+              fieldDef.display_label
+            }' in Zoho is not a valid datetime value.`,
+          );
+        } else {
+          result.zohoVal = dtVal
+            .set({ millisecond: 0 })
+            .toISO({ suppressMilliseconds: true });
+        }
+        break;
+      // Handle date values
+      case "date":
+        let dVal;
+        if (typeof hullVal === "string") {
+          dVal = DateTime.fromISO(hullVal);
+        } else if (typeof hullVal === "number") {
+          dVal = DateTime.fromSeconds(hullVal);
+        }
+
+        if (isNil(hullVal)) {
+          result.zohoVal = null;
+        } else if (isNil(dVal) || dVal.isValid === false) {
+          result.errors.push(
+            `Value for Hull Attribute '${hullAttribute.replace(
+              "traits_",
+              "",
+            )} mapped to 'Field '${
+              fieldDef.display_label
+            }' in Zoho is not a valid date value.`,
+          );
+        } else {
+          result.zohoVal = dVal.toISODate();
+        }
+        break;
+      // Handle boolean values
+      case "boolean":
+        if (typeof hullVal !== "boolean") {
+          result.errors.push(
+            `Value for Hull Attribute '${hullAttribute.replace(
+              "traits_",
+              "",
+            )} mapped to 'Field '${
+              fieldDef.display_label
+            }' in Zoho is not a boolean.`,
+          );
+        } else {
+          result.zohoVal = hullVal;
+        }
+        break;
+      default:
         break;
     }
 

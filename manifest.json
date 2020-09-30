@@ -95,6 +95,40 @@
       ]
     },
     {
+      "name": "lead_synchronized_segments",
+      "title": "Outgoing Lead Filter",
+      "description": "Synchronize Hull Users to Zoho Leads when they are part of one of these segments.",
+      "type": "array",
+      "format": "segment",
+      "default": []
+    },
+    {
+      "name": "mapping_out_lead",
+      "type": "array",
+      "title": "Outgoing Attributes",
+      "format": "traitMapping",
+      "options": {
+        "direction": "outgoing",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": false,
+        "loadOptions": "/meta/fields/leads/outgoing"
+      },
+      "default": [{
+          "hull": "first_name",
+          "service": "First_Name"
+        },
+        {
+          "hull": "last_name",
+          "service": "Last_Name"
+        },
+        {
+          "hull": "email",
+          "service": "Email"
+        }
+      ]
+    },
+    {
       "name": "identity_in_contact",
       "title": "Incoming Identity",
       "description": "Customize how contact data is routed to Hull User profiles.",
@@ -175,6 +209,40 @@
       ]
     },
     {
+      "name": "contact_synchronized_segments",
+      "title": "Outgoing Contact Filter",
+      "description": "Synchronize Hull Users to Zoho Contacts when they are part of one of these segments.",
+      "type": "array",
+      "format": "segment",
+      "default": []
+    },
+    {
+      "name": "mapping_out_contact",
+      "type": "array",
+      "title": "Outgoing Attributes",
+      "format": "traitMapping",
+      "options": {
+        "direction": "outgoing",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": false,
+        "loadOptions": "/meta/fields/contacts/outgoing"
+      },
+      "default": [{
+          "hull": "first_name",
+          "service": "First_Name"
+        },
+        {
+          "hull": "last_name",
+          "service": "Last_Name"
+        },
+        {
+          "hull": "email",
+          "service": "Email"
+        }
+      ]
+    },
+    {
       "name": "identity_in_account",
       "title": "Incoming Identity",
       "description": "Customize how account data is routed to Hull Account profiles.",
@@ -237,6 +305,45 @@
           "service": "Website"
         }
       ]
+    },
+    {
+      "name": "account_synchronized_segments",
+      "title": "Outgoing Account Filter",
+      "description": "Synchronize Hull Accounts to Zoho Accounts when they are part of one of these segments.",
+      "type": "array",
+      "format": "accountSegment",
+      "default": []
+    },
+    {
+      "name": "mapping_out_account",
+      "type": "array",
+      "title": "Outgoing Attributes",
+      "format": "accountTraitMapping",
+      "options": {
+        "direction": "outgoing",
+        "showOverwriteToggle": false,
+        "placeholder": "Zoho Field",
+        "allowCreate": false,
+        "loadOptions": "/meta/fields/accounts/outgoing"
+      },
+      "default": [{
+          "hull": "name",
+          "service": "Account_Name"
+        },
+        {
+          "hull": "domain",
+          "service": "Website"
+        }
+      ]
+    },
+    {
+      "name": "batch_users_module",
+      "title": "Batch Handling Users",
+      "description": "Determine whether users which are sent via a batch request are treated to be as Leads or Contacts in Zoho.",
+      "type": "string",
+      "format": "select",
+      "enum": ["Leads", "Contacts"],
+      "default": "Leads"
     }
   ],
   "json": [{
@@ -330,7 +437,30 @@
       "value": "1440"
     }
   ],
-  "subscriptions": [],
+  "subscriptions": [{
+    "url": "/smart-notifier",
+    "conditions": {
+      "channels": {
+        "only": ["user:update", "account:update"]
+      },
+      "segments": {
+        "user:update": [
+          "private_settings.lead_synchronized_segments",
+          "private_settings.contact_synchronized_segments"
+        ],
+        "account:update": [
+          "private_settings.account_synchronized_segments"
+        ]
+      }
+    },
+    "channels": [{
+      "channel": "user:update",
+      "handler": "user_update"
+    }, {
+      "channel": "account:update",
+      "handler": "account_update"
+    }]
+  }],
   "settings_sections": [{
       "title": "Authentication",
       "description": "Configure the parameters to authorize the Zoho API.",
@@ -342,7 +472,9 @@
       "properties": [
         "private_settings.identity_in_lead",
         "private_settings.mapping_in_lead",
-        "json.fetch_all_leads"
+        "json.fetch_all_leads",
+        "private_settings.lead_synchronized_segments",
+        "private_settings.mapping_out_lead"
       ]
     },
     {
@@ -351,7 +483,9 @@
       "properties": [
         "private_settings.identity_in_contact",
         "private_settings.mapping_in_contact",
-        "json.fetch_all_contacts"
+        "json.fetch_all_contacts",
+        "private_settings.contact_synchronized_segments",
+        "private_settings.mapping_out_contact"
       ]
     },
     {
@@ -360,7 +494,16 @@
       "properties": [
         "private_settings.identity_in_account",
         "private_settings.mapping_in_account",
-        "json.fetch_all_accounts"
+        "json.fetch_all_accounts",
+        "private_settings.account_synchronized_segments",
+        "private_settings.mapping_out_account"
+      ]
+    },
+    {
+      "title": "Advanced Settings",
+      "description": "Configure advanced data flow configuration.",
+      "properties": [
+        "private_settings.batch_users_module"
       ]
     }
   ]

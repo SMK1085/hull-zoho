@@ -133,7 +133,7 @@ export const server = (app: Application): Application => {
         groupTraits: false,
       },
       handlers: {
-        "user: update": actions.userUpdate({ isBatch: true, req }),
+        "user:update": actions.userUpdate({ isBatch: true, req }),
         "account:update": actions.accountUpdate({ isBatch: true, req }),
       },
     })(req, res, next);

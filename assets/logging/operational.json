@@ -17,10 +17,10 @@
     "message": "Detected no-op for sending account messages. None of the messages satisfy the filtering criteria."
   },
   {
-    "id": "OPERATION_SENDACCOUNTMESSAGES_INVALIDCONFIG",
+    "id": "OPERATION_SENDACCOUNTMESSAGES_MODULENOTSUPPORTED",
     "code": "11-004",
     "component": "SyncAgent",
-    "message": "The connector has an invalid or insufficient configuration, please check the settings. No data will be sent to the service."
+    "message": "The connected Zoho tenant has no module with the API name 'Accounts'. No data will be sent to the service."
   },
   {
     "id": "OPERATION_SENDACCOUNTMESSAGESBATCH_START",

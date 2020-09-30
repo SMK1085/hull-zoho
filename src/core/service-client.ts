@@ -14,6 +14,9 @@ import {
   Schema$GetNotificationDetailsResponse,
   Schema$GetSpecificRecordRequestParams,
   Schema$GetSpecificRecordResponse,
+  Schema$ZohoUpsertRecordsParams,
+  Schema$ZohoUpsertRecordsResponse,
+  Schema$ZohoModulesResponse,
 } from "../core/service-objects";
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { ApiUtil } from "../utils/api-util";
@@ -249,6 +252,52 @@ export class ServiceClient {
       return ApiUtil.handleApiResultSuccess(url, method, params, response.data);
     } catch (error) {
       return ApiUtil.handleApiResultError(url, method, params, error);
+    }
+  }
+
+  public async upsertRecords(
+    params: Schema$ZohoUpsertRecordsParams,
+  ): Promise<
+    ApiResultObject<
+      Schema$ZohoUpsertRecordsParams,
+      Schema$ZohoUpsertRecordsResponse,
+      AxiosError
+    >
+  > {
+    const url = `${this.apiDomain}/crm/v2/${params.module}/upsert`;
+    const method: ApiMethod = "post";
+
+    try {
+      const response = await axios.post<Schema$ZohoUpsertRecordsResponse>(
+        url,
+        omit(params, ["module"]),
+        this.getApiDomainRequestConfig(),
+      );
+      return ApiUtil.handleApiResultSuccess(url, method, params, response.data);
+    } catch (error) {
+      return ApiUtil.handleApiResultError(url, method, params, error);
+    }
+  }
+
+  public async listModules(): Promise<
+    ApiResultObject<undefined, Schema$ZohoModulesResponse, AxiosError>
+  > {
+    const url = `${this.apiDomain}/crm/v2/settings/modules`;
+    const method: ApiMethod = "get";
+
+    try {
+      const response = await axios.get<Schema$ZohoModulesResponse>(
+        url,
+        this.getApiDomainRequestConfig(),
+      );
+      return ApiUtil.handleApiResultSuccess(
+        url,
+        method,
+        undefined,
+        response.data,
+      );
+    } catch (error) {
+      return ApiUtil.handleApiResultError(url, method, undefined, error);
     }
   }
 

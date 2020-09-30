@@ -20,6 +20,7 @@ import {
   Schema$ZohoRecord,
   ZohoOAuthResponse,
   Schema$ZohoNotificationRequest,
+  Schema$ZohoModule,
 } from "./service-objects";
 import { FieldsSchema } from "../types/fields-schema";
 import { AuthStatus } from "../types/auth-status";
@@ -65,7 +66,218 @@ export class SyncAgent {
     messages: IHullUserUpdateMessage[],
     isBatch = false,
   ): Promise<void> {
-    return Promise.resolve();
+    const logger = this.diContainer.resolve<Logger>("logger");
+    const loggingUtil = this.diContainer.resolve<LoggingUtil>("loggingUtil");
+    const correlationKey = this.diContainer.resolve<string>("correlationKey");
+    const connectorId = this.diContainer.resolve<string>("hullAppId");
+
+    try {
+      const appSettings = this.diContainer.resolve<PrivateSettings>(
+        "hullAppSettings",
+      );
+
+      if (
+        !isNil(appSettings.zoho_modules) &&
+        !appSettings.zoho_modules.includes("Leads") &&
+        !appSettings.zoho_modules.includes("Contacts")
+      ) {
+        return;
+      }
+
+      const filterUtil = this.diContainer.resolve<FilterUtil>("filterUtil");
+      const mappingUtil = this.diContainer.resolve<MappingUtil>("mappingUtil");
+
+      const filteredEnvelopes = filterUtil.filterUserMessagesInitial(
+        messages,
+        isBatch,
+      );
+
+      const cachingUtil = this.diContainer.resolve<CachingUtil>("cachingUtil");
+      const serviceClient = this.diContainer.resolve<ServiceClient>(
+        "serviceClient",
+      );
+      const metaResponseLeads = await cachingUtil.getCachedApiResponse(
+        `${connectorId}_fields_leads`,
+        () => serviceClient.getFields({ module: "Leads" }),
+        5 * 60,
+      );
+
+      if (metaResponseLeads.success === false) {
+        throw metaResponseLeads.errorDetails!;
+      }
+
+      const metaResponseContacts = await cachingUtil.getCachedApiResponse(
+        `${connectorId}_fields_contacts`,
+        () => serviceClient.getFields({ module: "Contacts" }),
+        5 * 60,
+      );
+
+      if (metaResponseContacts.success === false) {
+        throw metaResponseContacts.errorDetails!;
+      }
+
+      if (filteredEnvelopes.upserts.length === 0) {
+        // TODO: Log no-op
+        return;
+      }
+
+      let leadEnvelopes = filteredEnvelopes.upserts.filter(
+        (e) => e.serviceObject!.module === "Leads",
+      );
+      let contactEnvelopes = filteredEnvelopes.upserts.filter(
+        (e) => e.serviceObject!.module === "Contacts",
+      );
+
+      const hullClient = this.diContainer.resolve<IHullClient>("hullClient");
+
+      leadEnvelopes = leadEnvelopes
+        .map((e) => {
+          const mappedLead = mappingUtil.mapHullObjectToZohoRecord(
+            e.message.user,
+            e.serviceObject!.module,
+            metaResponseLeads.data!.fields,
+            correlationKey,
+          );
+          if (mappedLead.errors.length === 0) {
+            return {
+              message: e.message,
+              objectType: e.objectType,
+              operation: e.operation,
+              notes: e.notes,
+              serviceObject: {
+                module: e.serviceObject!.module,
+                data: mappedLead.record,
+              },
+            };
+          } else {
+            hullClient
+              .asUser(e.message.user)
+              .logger.error("outgoing.user.error", {
+                message: "Invalid data.",
+                errorDetails: mappedLead.errors,
+              });
+            // TODO: Add logging
+            return undefined;
+          }
+        })
+        .filter((e) => !isNil(e)) as any;
+
+      contactEnvelopes = contactEnvelopes
+        .map((e) => {
+          const mappedContact = mappingUtil.mapHullObjectToZohoRecord(
+            e.message.user,
+            e.serviceObject!.module,
+            metaResponseContacts.data!.fields,
+            correlationKey,
+          );
+          if (mappedContact.errors.length === 0) {
+            return {
+              message: e.message,
+              objectType: e.objectType,
+              operation: e.operation,
+              notes: e.notes,
+              serviceObject: {
+                module: e.serviceObject!.module,
+                data: mappedContact.record,
+              },
+            };
+          } else {
+            hullClient
+              .asUser(e.message.user)
+              .logger.error("outgoing.user.error", {
+                message: "Invalid data.",
+                errorDetails: mappedContact.errors,
+              });
+            // TODO: Add logging
+            return undefined;
+          }
+        })
+        .filter((e) => !isNil(e)) as any;
+
+      if (leadEnvelopes.length > 0) {
+        const responseLeads = await serviceClient.upsertRecords({
+          data: leadEnvelopes.map((e) => e.serviceObject!.data),
+          module: "Leads",
+        });
+
+        if (responseLeads.success) {
+          let i = 0;
+          await asyncForEach(
+            responseLeads.data!.data,
+            async (d: Schema$ZohoRecord) => {
+              if (d.status === "success") {
+                const userIdent = leadEnvelopes[i].message.user;
+                const attribs = mappingUtil.mapZohoRecordToHullAttributes(
+                  "Leads",
+                  d.details,
+                  metaResponseLeads.data!.fields,
+                  correlationKey,
+                );
+                await hullClient.asUser(userIdent).traits(attribs as any);
+              } else {
+                hullClient
+                  .asUser(leadEnvelopes[i].message.user)
+                  .logger.error("outgoing.user.error", {
+                    message: "API call rejected",
+                    errorDetails: d,
+                  });
+                // TODO: Log failure
+              }
+              i += 1;
+            },
+          );
+        } else {
+          // TODO: Mark all as errors
+          throw responseLeads.errorDetails!;
+        }
+      }
+
+      if (contactEnvelopes.length > 0) {
+        const responseContacts = await serviceClient.upsertRecords({
+          data: contactEnvelopes.map((e) => e.serviceObject!.data),
+          module: "Contacts",
+        });
+
+        if (responseContacts.success) {
+          let i = 0;
+          await asyncForEach(
+            responseContacts.data!.data,
+            async (d: Schema$ZohoRecord) => {
+              if (d.status === "success") {
+                const userIdent = contactEnvelopes[i].message.user;
+                const attribs = mappingUtil.mapZohoRecordToHullAttributes(
+                  "Contacts",
+                  d.details,
+                  metaResponseContacts.data!.fields,
+                  correlationKey,
+                );
+                await hullClient.asUser(userIdent).traits(attribs as any);
+              } else {
+                hullClient
+                  .asUser(contactEnvelopes[i].message.user)
+                  .logger.error("outgoing.user.error", {
+                    message: "API call rejected",
+                    errorDetails: d,
+                  });
+                // TODO: Log failure
+              }
+              i += 1;
+            },
+          );
+        } else {
+          // TODO: Mark all as errors
+          throw responseContacts.errorDetails!;
+        }
+      }
+    } catch (error) {
+      logger.error(
+        loggingUtil.composeErrorMessage(
+          "OPERATION_SENDUSERMESSAGES_UNHANDLED",
+          error,
+          correlationKey,
+        ),
+      );
+    }
   }
 
   /**
@@ -80,7 +292,145 @@ export class SyncAgent {
     messages: IHullAccountUpdateMessage[],
     isBatch = false,
   ): Promise<void> {
-    return Promise.resolve();
+    const logger = this.diContainer.resolve<Logger>("logger");
+    const loggingUtil = this.diContainer.resolve<LoggingUtil>("loggingUtil");
+    const correlationKey = this.diContainer.resolve<string>("correlationKey");
+    const connectorId = this.diContainer.resolve<string>("hullAppId");
+
+    try {
+      const appSettings = this.diContainer.resolve<PrivateSettings>(
+        "hullAppSettings",
+      );
+
+      if (
+        !isNil(appSettings.zoho_modules) &&
+        !appSettings.zoho_modules.includes("Accounts")
+      ) {
+        logger.debug(
+          loggingUtil.composeOperationalMessage(
+            "OPERATION_SENDACCOUNTMESSAGES_MODULENOTSUPPORTED",
+            correlationKey,
+          ),
+        );
+        return;
+      }
+
+      const filterUtil = this.diContainer.resolve<FilterUtil>("filterUtil");
+      const mappingUtil = this.diContainer.resolve<MappingUtil>("mappingUtil");
+
+      const filteredEnvelopes = filterUtil.filterAccountMessagesInitial(
+        messages,
+        isBatch,
+      );
+
+      const cachingUtil = this.diContainer.resolve<CachingUtil>("cachingUtil");
+      const serviceClient = this.diContainer.resolve<ServiceClient>(
+        "serviceClient",
+      );
+      const metaResponseAccounts = await cachingUtil.getCachedApiResponse(
+        `${connectorId}_fields_accounts`,
+        () => serviceClient.getFields({ module: "Accounts" }),
+        5 * 60,
+      );
+
+      if (metaResponseAccounts.success === false) {
+        throw metaResponseAccounts.errorDetails!;
+      }
+
+      if (filteredEnvelopes.upserts.length === 0) {
+        logger.debug(
+          loggingUtil.composeOperationalMessage(
+            "OPERATION_SENDACCOUNTMESSAGES_NOOP",
+            correlationKey,
+          ),
+        );
+        return;
+      }
+
+      let accountEnvelopes = filteredEnvelopes.upserts.filter(
+        (e) => e.serviceObject!.module === "Accounts",
+      );
+
+      const hullClient = this.diContainer.resolve<IHullClient>("hullClient");
+
+      accountEnvelopes = accountEnvelopes
+        .map((e) => {
+          const mappedAccount = mappingUtil.mapHullObjectToZohoRecord(
+            e.message.account,
+            e.serviceObject!.module,
+            metaResponseAccounts.data!.fields,
+            correlationKey,
+          );
+          if (mappedAccount.errors.length === 0) {
+            return {
+              message: e.message,
+              objectType: e.objectType,
+              operation: e.operation,
+              notes: e.notes,
+              serviceObject: {
+                module: e.serviceObject!.module,
+                data: mappedAccount.record,
+              },
+            };
+          } else {
+            hullClient
+              .asAccount(e.message.account)
+              .logger.error("outgoing.account.error", {
+                message: "Invalid data.",
+                errorDetails: mappedAccount.errors,
+              });
+            // TODO: Add logging
+            return undefined;
+          }
+        })
+        .filter((e) => !isNil(e)) as any;
+
+      if (accountEnvelopes.length > 0) {
+        const responseAccounts = await serviceClient.upsertRecords({
+          data: accountEnvelopes.map((e) => e.serviceObject!.data),
+          module: "Accounts",
+        });
+
+        if (responseAccounts.success) {
+          let i = 0;
+          await asyncForEach(
+            responseAccounts.data!.data,
+            async (d: Schema$ZohoRecord) => {
+              if (d.status === "success") {
+                const acctIdent = accountEnvelopes[i].message.account;
+                const attribs = mappingUtil.mapZohoRecordToHullAttributes(
+                  "Accounts",
+                  d.details,
+                  metaResponseAccounts.data!.fields,
+                  correlationKey,
+                );
+                await hullClient.asAccount(acctIdent).traits(attribs as any);
+              } else {
+                hullClient
+                  .asAccount(accountEnvelopes[i].message.account)
+                  .logger.error("outgoing.account.error", {
+                    message: "API call rejected",
+                    errorDetails: d,
+                  });
+                // TODO: Log failure
+              }
+              i += 1;
+            },
+          );
+        } else {
+          // TODO: Mark all as errors
+          throw responseAccounts.errorDetails!;
+        }
+      }
+    } catch (error) {
+      logger.error(
+        loggingUtil.composeErrorMessage(
+          "OPERATION_SENDACCOUNTMESSAGES_UNHANDLED",
+          error,
+          correlationKey,
+        ),
+      );
+    }
   }
 
   /**
@@ -144,7 +494,6 @@ export class SyncAgent {
         isNil(
           metaResponse.data!.fields.find((f) => f.api_name === "Modified_Time"),
         ) === false;
-
       // We now have the metadata, so we can start looping over the records in Zoho
       let hasMore: boolean = true;
       let page: number = 1;
@@ -180,7 +529,7 @@ export class SyncAgent {
                 metaResponse.data!.fields,
                 correlationKey,
               );
-              // console.log(">>> Hull Ident", hullIdent);
+
               if (isNil(hullIdent)) {
                 // Log a skip, since we know undefined here means a required identifier is missing.
                 const hullObjectType =
@@ -195,7 +544,6 @@ export class SyncAgent {
                   metaResponse.data!.fields,
                   correlationKey,
                 );
-                // console.log(">>> Hull Attributes", hullAttribs);
                 if (isNil(hullAttribs)) {
                   // TODO: Log an error
                   if (module === "accounts") {
@@ -526,6 +874,8 @@ export class SyncAgent {
           refresh_token,
         );
 
+        const responseModules = await serviceClient.listModules();
+
         await (hullClient as any).utils.settings.update({
           access_token: responseTokens.data!.access_token,
           api_domain: responseTokens.data!.api_domain,
@@ -534,9 +884,12 @@ export class SyncAgent {
           expires_at: DateTime.utc()
             .plus({ seconds: responseTokens.data!.expires_in })
             .toISO(),
+          zoho_modules: responseModules.data
+            ? responseModules.data.modules.map((m) => m.api_name)
+            : null,
         });
 
-        await this.ensureNotifications();
+        await this.ensureNotifications(responseModules.data?.modules);
       }
 
       const appSecret = this.diContainer.resolve<string>("hullAppSecret");
@@ -646,14 +999,7 @@ export class SyncAgent {
         data["accounts-server"],
         data.code,
       );
-      console.log(">>> OAUTH TOKENS RESPONSE", responseTokens);
-      logger.debug(
-        loggingUtil.composeOperationalMessage(
-          "OPERATION_AUTHTOKENFROMCODE_RESPONSE",
-          correlationKey,
-          JSON.stringify(responseTokens),
-        ),
-      );
+
       await (hullClient as any).utils.settings.update({
         zoho_location: data.location,
         zoho_accounts_server: data["accounts-server"],
@@ -674,7 +1020,6 @@ export class SyncAgent {
         ),
       );
     } catch (error) {
-      console.error(">>> ERROR OAUTH FLOW", error);
       const logPayload = loggingUtil.composeErrorMessage(
         "OPERATION_AUTHTOKENFROMCODE_UNHANDLED",
         cloneDeep(error),
@@ -761,7 +1106,9 @@ export class SyncAgent {
     return Promise.resolve(result);
   }
 
-  private async ensureNotifications(): Promise<void> {
+  private async ensureNotifications(
+    modules?: Schema$ZohoModule[],
+  ): Promise<void> {
     const logger = this.diContainer.resolve<Logger>("logger");
     const loggingUtil = this.diContainer.resolve<LoggingUtil>("loggingUtil");
     const correlationKey = this.diContainer.resolve<string>("correlationKey");
@@ -781,194 +1128,214 @@ export class SyncAgent {
     const baseChannelId = isNil(appSettings.notifications_channelid_base)
       ? 1000000268000
       : appSettings.notifications_channelid_base;
-
+    const moduleApiNames = modules ? modules.map((m) => m.api_name) : [];
     // Lead Notifications
-    if (isNil(appSettings.notifications_channelid_lead)) {
-      // Enable Notifications for Leads
-      const channelIdLead = baseChannelId + 1;
-      const notificationLead: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: `${channelIdLead}`,
-        events: ["Leads.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseEnableLead = await serviceClient.enableNotifications({
-        watch: [notificationLead],
-      });
-      if (responseEnableLead.success && responseEnableLead.data) {
-        if (responseEnableLead.data.watch[0].status === "success") {
-          await (hullClient as any).utils.settings.update({
-            notifications_channelid_lead: `${channelIdLead}`,
-          });
+    if (isNil(modules) || moduleApiNames.includes("Leads")) {
+      if (isNil(appSettings.notifications_channelid_lead)) {
+        // Enable Notifications for Leads
+        const channelIdLead = baseChannelId + 1;
+        const notificationLead: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: `${channelIdLead}`,
+          events: ["Leads.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseEnableLead = await serviceClient.enableNotifications({
+          watch: [notificationLead],
+        });
+        if (responseEnableLead.success && responseEnableLead.data) {
+          if (responseEnableLead.data.watch[0].status === "success") {
+            await (hullClient as any).utils.settings.update({
+              notifications_channelid_lead: `${channelIdLead}`,
+            });
+          } else {
+            logger.error(
+              loggingUtil.composeErrorMessage(
+                "OPERATION_ENABLENOTIFICATIONS_LEADS_FAILED",
+                responseEnableLead.data,
+                correlationKey,
+              ),
+            );
+          }
         } else {
-          // TODO: Replace with logger implementation
-          console.error(
-            ">>> Failed to enable lead notifications",
-            JSON.stringify(responseEnableLead),
+          logger.error(
+            loggingUtil.composeErrorMessage(
+              "OPERATION_ENABLENOTIFICATIONS_LEADS_FAILED",
+              responseEnableLead.errorDetails,
+              correlationKey,
+            ),
           );
         }
       } else {
-        // TODO: Replace with logger implementation
-        console.error(
-          ">>> Failed to enable lead notifications",
-          responseEnableLead,
+        // Update Notifications for Leads
+        const notificationLead: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: appSettings.notifications_channelid_lead,
+          events: ["Leads.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseUpdateLead = await serviceClient.updateNotificationDetails(
+          {
+            watch: [notificationLead],
+          },
         );
-      }
-    } else {
-      // Update Notifications for Leads
-      const notificationLead: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: appSettings.notifications_channelid_lead,
-        events: ["Leads.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseUpdateLead = await serviceClient.updateNotificationDetails({
-        watch: [notificationLead],
-      });
-      if (
-        responseUpdateLead.success === false ||
-        (responseUpdateLead.data &&
-          responseUpdateLead.data.watch[0].status !== "success")
-      ) {
-        await (hullClient as any).utils.settings.update({
-          notifications_channelid_lead: null,
-        });
+        if (
+          responseUpdateLead.success === false ||
+          (responseUpdateLead.data &&
+            responseUpdateLead.data.watch[0].status !== "success")
+        ) {
+          await (hullClient as any).utils.settings.update({
+            notifications_channelid_lead: null,
+          });
+        }
       }
     }
 
     // Contact Notifications
-    if (isNil(appSettings.notifications_channelid_contact)) {
-      // Enable Notifications for Contacts
-      const channelIdContact = baseChannelId + 2;
-      const notificationContact: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: `${channelIdContact}`,
-        events: ["Contacts.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseEnableContact = await serviceClient.enableNotifications({
-        watch: [notificationContact],
-      });
-      if (responseEnableContact.success && responseEnableContact.data) {
-        if (responseEnableContact.data.watch[0].status === "success") {
-          await (hullClient as any).utils.settings.update({
-            notifications_channelid_contact: `${channelIdContact}`,
-          });
+    if (isNil(modules) || moduleApiNames.includes("Contacts")) {
+      if (isNil(appSettings.notifications_channelid_contact)) {
+        // Enable Notifications for Contacts
+        const channelIdContact = baseChannelId + 2;
+        const notificationContact: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: `${channelIdContact}`,
+          events: ["Contacts.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseEnableContact = await serviceClient.enableNotifications({
+          watch: [notificationContact],
+        });
+        if (responseEnableContact.success && responseEnableContact.data) {
+          if (responseEnableContact.data.watch[0].status === "success") {
+            await (hullClient as any).utils.settings.update({
+              notifications_channelid_contact: `${channelIdContact}`,
+            });
+          } else {
+            logger.error(
+              loggingUtil.composeErrorMessage(
+                "OPERATION_ENABLENOTIFICATIONS_CONTACTS_FAILED",
+                responseEnableContact.data,
+                correlationKey,
+              ),
+            );
+          }
         } else {
-          // TODO: Replace with logger implementation
-          console.error(
-            ">>> Failed to enable contact notifications",
-            JSON.stringify(responseEnableContact),
+          logger.error(
+            loggingUtil.composeErrorMessage(
+              "OPERATION_ENABLENOTIFICATIONS_CONTACTS_FAILED",
+              responseEnableContact.errorDetails,
+              correlationKey,
+            ),
           );
         }
       } else {
-        // TODO: Replace with logger implementation
-        console.error(
-          ">>> Failed to enable contact notifications",
-          responseEnableContact,
+        // Update Notifications for Contacts
+        const notificationContact: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: appSettings.notifications_channelid_contact,
+          events: ["Contacts.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseUpdateContact = await serviceClient.updateNotificationDetails(
+          {
+            watch: [notificationContact],
+          },
         );
-      }
-    } else {
-      // Update Notifications for Contacts
-      const notificationContact: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: appSettings.notifications_channelid_contact,
-        events: ["Contacts.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseUpdateContact = await serviceClient.updateNotificationDetails(
-        {
-          watch: [notificationContact],
-        },
-      );
-      if (
-        responseUpdateContact.success === false ||
-        (responseUpdateContact.data &&
-          responseUpdateContact.data.watch[0].status !== "success")
-      ) {
-        await (hullClient as any).utils.settings.update({
-          notifications_channelid_contact: null,
-        });
+        if (
+          responseUpdateContact.success === false ||
+          (responseUpdateContact.data &&
+            responseUpdateContact.data.watch[0].status !== "success")
+        ) {
+          await (hullClient as any).utils.settings.update({
+            notifications_channelid_contact: null,
+          });
+        }
       }
     }
 
     // Account Notifications
-    if (isNil(appSettings.notifications_channelid_account)) {
-      // Enable Notifications for Accounts
-      const channelIdAccount = baseChannelId + 3;
-      const notificationAccount: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: `${channelIdAccount}`,
-        events: ["Accounts.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseEnableAccount = await serviceClient.enableNotifications({
-        watch: [notificationAccount],
-      });
-      if (responseEnableAccount.success && responseEnableAccount.data) {
-        if (responseEnableAccount.data.watch[0].status === "success") {
-          await (hullClient as any).utils.settings.update({
-            notifications_channelid_account: `${channelIdAccount}`,
-          });
+    if (isNil(modules) || moduleApiNames.includes("Accounts")) {
+      if (isNil(appSettings.notifications_channelid_account)) {
+        // Enable Notifications for Accounts
+        const channelIdAccount = baseChannelId + 3;
+        const notificationAccount: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: `${channelIdAccount}`,
+          events: ["Accounts.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseEnableAccount = await serviceClient.enableNotifications({
+          watch: [notificationAccount],
+        });
+        if (responseEnableAccount.success && responseEnableAccount.data) {
+          if (responseEnableAccount.data.watch[0].status === "success") {
+            await (hullClient as any).utils.settings.update({
+              notifications_channelid_account: `${channelIdAccount}`,
+            });
+          } else {
+            logger.error(
+              loggingUtil.composeErrorMessage(
+                "OPERATION_ENABLENOTIFICATIONS_ACCOUNTS_FAILED",
+                responseEnableAccount.data,
+                correlationKey,
+              ),
+            );
+          }
         } else {
-          // TODO: Replace with logger implementation
-          console.error(
-            ">>> Failed to enable account notifications",
-            JSON.stringify(responseEnableAccount),
+          logger.error(
+            loggingUtil.composeErrorMessage(
+              "OPERATION_ENABLENOTIFICATIONS_ACCOUNTS_FAILED",
+              responseEnableAccount.errorDetails,
+              correlationKey,
+            ),
           );
         }
       } else {
-        // TODO: Replace with logger implementation
-        console.error(
-          ">>> Failed to enable account notifications",
-          responseEnableAccount,
+        // Update Notifications for Accounts
+        const notificationAccount: Schema$ZohoNotification = {
+          channel_expiry: DateTime.local()
+            .set({ millisecond: 0 })
+            .plus({ hours: 2 })
+            .toISO({ suppressMilliseconds: true }),
+          channel_id: appSettings.notifications_channelid_account,
+          events: ["Accounts.all"],
+          notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
+          token: connectorId,
+        };
+        const responseUpdateAccount = await serviceClient.updateNotificationDetails(
+          {
+            watch: [notificationAccount],
+          },
         );
-      }
-    } else {
-      // Update Notifications for Accounts
-      const notificationAccount: Schema$ZohoNotification = {
-        channel_expiry: DateTime.local()
-          .set({ millisecond: 0 })
-          .plus({ hours: 2 })
-          .toISO({ suppressMilliseconds: true }),
-        channel_id: appSettings.notifications_channelid_account,
-        events: ["Accounts.all"],
-        notify_url: `${process.env.ZOHO_NOTIFY_URL_BASE}/notifications?token=${appToken}`,
-        token: connectorId,
-      };
-      const responseUpdateAccount = await serviceClient.updateNotificationDetails(
-        {
-          watch: [notificationAccount],
-        },
-      );
-      if (
-        responseUpdateAccount.success === false ||
-        (responseUpdateAccount.data &&
-          responseUpdateAccount.data.watch[0].status !== "success")
-      ) {
-        await (hullClient as any).utils.settings.update({
-          notifications_channelid_account: null,
-        });
+        if (
+          responseUpdateAccount.success === false ||
+          (responseUpdateAccount.data &&
+            responseUpdateAccount.data.watch[0].status !== "success")
+        ) {
+          await (hullClient as any).utils.settings.update({
+            notifications_channelid_account: null,
+          });
+        }
       }
     }
   }

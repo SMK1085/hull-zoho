@@ -20,8 +20,8 @@ export const TENANT_ID = "unittesting.hullapp.io";
 
 export const MAPPING_IN_LEAD_DEFAULT: HullConnectorAttributeMapping[] = manifest.private_settings.find(
   (s) => s.name === "mapping_in_lead",
-)!.default;
+)!.default as HullConnectorAttributeMapping[];
 
 export const IDENTITY_IN_LEAD_DEFAULT: HullConnectorIdentityMapping[] = manifest.private_settings.find(
   (s) => s.name === "identity_in_lead",
-)!.default;
+)!.default as HullConnectorIdentityMapping[];

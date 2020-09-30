@@ -24,7 +24,6 @@ const app = express();
 app.use(json(), (req, res, next) => {
   // Note: This is because Zoho doesn't send query string parameters as such
   //       in webhook notifications.
-  console.log(">>> Request body", req.body);
   if (!isNil(get(req, "body.query_params.token", null))) {
     set(req, "query.token", get(req, "body.query_params.token"));
   }

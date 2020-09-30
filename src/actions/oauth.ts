@@ -28,7 +28,6 @@ export const oauthInitActionFactory = (): RequestHandler => {
       }
 
       const redirectUri = syncAgent.getOAuthUri((req as any).hull.token);
-      console.log(redirectUri);
       res.redirect(redirectUri);
       return Promise.resolve(true);
     } catch (error) {

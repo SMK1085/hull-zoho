@@ -56,11 +56,50 @@ export class FilterUtil {
           notes: [VALIDATION_SKIP_HULLOBJECT_NOTINANYSEGMENT("user")],
           objectType: "user",
         });
-      } else {
+      } else if (
+        !isBatch &&
+        FilterUtil.isInAnySegment(
+          msg.segments,
+          this.privateSettings.lead_synchronized_segments || [],
+        )
+      ) {
+        // Handle leads
         result.upserts.push({
           message: msg,
           operation: "upsert",
           objectType: "user",
+          serviceObject: {
+            module: "Leads",
+            data: {},
+          },
+        });
+      } else if (
+        !isBatch &&
+        FilterUtil.isInAnySegment(
+          msg.segments,
+          this.privateSettings.contact_synchronized_segments || [],
+        )
+      ) {
+        // Handle contacts
+        result.upserts.push({
+          message: msg,
+          operation: "upsert",
+          objectType: "user",
+          serviceObject: {
+            module: "Contacts",
+            data: {},
+          },
+        });
+      } else {
+        // Handle batch according to the settings
+        result.upserts.push({
+          message: msg,
+          operation: "upsert",
+          objectType: "user",
+          serviceObject: {
+            module: this.privateSettings.batch_users_module || "Leads",
+            data: {},
+          },
         });
       }
     });
@@ -102,6 +141,10 @@ export class FilterUtil {
           message: msg,
           operation: "upsert",
           objectType: "account",
+          serviceObject: {
+            module: "Accounts",
+            data: {},
+          },
         });
       }
     });

@@ -32,6 +32,9 @@ export interface PrivateSettings {
   notifications_channelid_lead?: string | null;
   notifications_channelid_contact?: string | null;
   notifications_channelid_account?: string | null;
+
+  batch_users_module?: "Leads" | "Contacts";
+  zoho_modules?: string[] | null;
 }
 
 export interface LogPayload {

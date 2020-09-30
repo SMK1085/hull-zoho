@@ -217,7 +217,7 @@ export interface Schema$ZohoRecord {
   $state?: string;
   $converted?: boolean;
   $process_flow?: boolean;
-  id: string;
+  id?: string;
   $approved?: boolean;
   $approval?: {
     delegate: boolean;
@@ -308,4 +308,71 @@ export interface Schema$ZohoNotificationRequest {
 export interface Schema$ZohoUpsertObject {
   module: "Leads" | "Contacts" | "Accounts";
   data: { [key: string]: any };
+}
+
+export type Type$ZohoTrigger = "workflow" | "approval" | "blueprint";
+
+export interface Schema$ZohoUpsertRecordsParams {
+  module: string;
+  data: Schema$ZohoRecord[];
+  duplicate_check_fields?: string[];
+  trigger?: Type$ZohoTrigger[];
+}
+
+export interface Schema$ZohoUpsertRecordsResponse {
+  data: {
+    code: string;
+    duplicate_field: string | null;
+    action: string;
+    details: Schema$ZohoRecord;
+    message: string;
+    status: string;
+  }[];
+}
+
+export interface Schema$ZohoModule {
+  global_search_supported: boolean;
+  deletable: boolean;
+  description: string | null;
+  creatable: boolean;
+  inventory_template_supported: boolean;
+  modified_time: string;
+  plural_label: string;
+  presence_sub_menu: boolean;
+  triggers_supported: boolean;
+  id: string;
+  isBlueprintSupported: boolean;
+  visibility: number;
+  convertable: boolean;
+  editable: boolean;
+  emailTemplate_support: boolean;
+  profiles: { name: string; id: string }[];
+  filter_supported: boolean;
+  show_as_tab: boolean;
+  web_link: string | null;
+  sequence_number: number;
+  singular_label: string;
+  viewable: boolean;
+  api_supported: boolean;
+  api_name: string;
+  quick_create: boolean;
+  modified_by: {
+    name: string;
+    id: string;
+  };
+  generated_type: string;
+  feeds_required: boolean;
+  scoring_supported: boolean;
+  webform_supported: boolean;
+  arguments: any[];
+  module_name: string;
+  business_card_field_limit: number;
+  parent_module: {
+    api_name?: string;
+    id?: string;
+  };
+}
+
+export interface Schema$ZohoModulesResponse {
+  modules: Schema$ZohoModule[];
 }

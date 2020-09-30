@@ -1,4 +1,9 @@
-[
+[{
+    "id": "OPERATION_SENDUSERMESSAGES_UNHANDLED",
+    "code": "10-001",
+    "component": "SyncAgent",
+    "message": "Failed to process user messages due to an unhandled error."
+  },
   {
     "id": "OPERATION_SENDACCOUNTMESSAGES_UNHANDLED",
     "code": "11-001",
@@ -16,5 +21,23 @@
     "code": "30-001",
     "component": "Worker",
     "message": "Failed to process job due to an unhandled error."
+  },
+  {
+    "id": "OPERATION_ENABLENOTIFICATIONS_LEADS_FAILED",
+    "code": "40-001",
+    "component": "SyncAgent",
+    "message": "Failed to enable lead notifications."
+  },
+  {
+    "id": "OPERATION_ENABLENOTIFICATIONS_CONTACTS_FAILED",
+    "code": "40-002",
+    "component": "SyncAgent",
+    "message": "Failed to enable contact notifications."
+  },
+  {
+    "id": "OPERATION_ENABLENOTIFICATIONS_ACCOUNTS_FAILED",
+    "code": "40-003",
+    "component": "SyncAgent",
+    "message": "Failed to enable account notifications."
   }
 ]
