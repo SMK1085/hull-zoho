@@ -8,9 +8,14 @@ import {
   HullConnectorIdentityMapping,
 } from "../types/hull-connector";
 import jsonata from "jsonata";
-import { Schema$ZohoField, Schema$ZohoRecord } from "../core/service-objects";
+import {
+  Schema$ZohoField,
+  Schema$ZohoNoteCreate,
+  Schema$ZohoRecord,
+} from "../core/service-objects";
 import { Logger } from "winston";
 import { LoggingUtil } from "./logging-util";
+import IHullUserEvent from "../types/user-event";
 
 const ATTRIBUTE_GROUPS = {
   lead: "zoho_lead",
@@ -183,6 +188,44 @@ export class MappingUtil {
         result = undefined;
         break;
     }
+
+    return result;
+  }
+
+  public mapHullEventsToZohoNotes(
+    events: IHullUserEvent[],
+    parentId: string,
+    module: string,
+  ): Schema$ZohoNoteCreate[] {
+    const result: Schema$ZohoNoteCreate[] = [];
+    if (
+      isNil(this.appSettings.notes_events) ||
+      this.appSettings.notes_events.length === 0
+    ) {
+      return result;
+    }
+
+    const filteredEvents = events.filter((e) => {
+      return this.appSettings.notes_events?.includes(e.event);
+    });
+
+    if (filteredEvents.length === 0) {
+      return result;
+    }
+
+    filteredEvents.forEach((e) => {
+      let content = "";
+      forIn(e.properties, (v, k) => {
+        content += `${k}: ${v}`;
+        content += "\n";
+      });
+      result.push({
+        Note_Content: content,
+        Parent_Id: parentId,
+        se_module: module,
+        Note_Title: e.event,
+      });
+    });
 
     return result;
   }

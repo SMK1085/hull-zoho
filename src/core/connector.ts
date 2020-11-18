@@ -35,6 +35,8 @@ export interface PrivateSettings {
 
   batch_users_module?: "Leads" | "Contacts";
   zoho_modules?: string[] | null;
+
+  notes_events?: string[] | null;
 }
 
 export interface LogPayload {

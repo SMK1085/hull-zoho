@@ -376,3 +376,9 @@ export interface Schema$ZohoModule {
 export interface Schema$ZohoModulesResponse {
   modules: Schema$ZohoModule[];
 }
+export interface Schema$ZohoNoteCreate {
+  Note_Title?: string;
+  Note_Content: string;
+  Parent_Id: string;
+  se_module: string;
+}

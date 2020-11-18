@@ -17,6 +17,7 @@ import {
   Schema$ZohoUpsertRecordsParams,
   Schema$ZohoUpsertRecordsResponse,
   Schema$ZohoModulesResponse,
+  Schema$ZohoNoteCreate,
 } from "../core/service-objects";
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { ApiUtil } from "../utils/api-util";
@@ -298,6 +299,37 @@ export class ServiceClient {
       );
     } catch (error) {
       return ApiUtil.handleApiResultError(url, method, undefined, error);
+    }
+  }
+
+  public async createNotes(
+    payload: Schema$ZohoNoteCreate[],
+  ): Promise<
+    ApiResultObject<
+      Schema$ZohoNoteCreate[],
+      Schema$ZohoUpsertRecordsResponse,
+      AxiosError
+    >
+  > {
+    const url = `${this.apiDomain}/crm/v2/Notes`;
+    const method: ApiMethod = "post";
+
+    try {
+      const response = await axios.post<Schema$ZohoUpsertRecordsResponse>(
+        url,
+        {
+          data: payload,
+        },
+        this.getApiDomainRequestConfig(),
+      );
+      return ApiUtil.handleApiResultSuccess(
+        url,
+        method,
+        payload,
+        response.data,
+      );
+    } catch (error) {
+      return ApiUtil.handleApiResultError(url, method, payload, error);
     }
   }
 

@@ -214,6 +214,20 @@ export class SyncAgent {
                   correlationKey,
                 );
                 await hullClient.asUser(userIdent).traits(attribs as any);
+                // Extension: Synchronize Notes for Lead
+                const userEvents = leadEnvelopes[i].message.events;
+                const zohoNotes = mappingUtil.mapHullEventsToZohoNotes(
+                  userEvents,
+                  d.details.id as string,
+                  "Leads",
+                );
+                console.log(zohoNotes);
+                if (zohoNotes.length > 0) {
+                  const notesResponse = await serviceClient.createNotes(
+                    zohoNotes,
+                  );
+                  console.log(notesResponse);
+                }
               } else {
                 hullClient
                   .asUser(leadEnvelopes[i].message.user)
@@ -252,6 +266,16 @@ export class SyncAgent {
                   correlationKey,
                 );
                 await hullClient.asUser(userIdent).traits(attribs as any);
+                // Extension: Synchronize Notes for Contacts
+                const userEvents = contactEnvelopes[i].message.events;
+                const zohoNotes = mappingUtil.mapHullEventsToZohoNotes(
+                  userEvents,
+                  d.details.id as string,
+                  "Contacts",
+                );
+                if (zohoNotes.length > 0) {
+                  await serviceClient.createNotes(zohoNotes);
+                }
               } else {
                 hullClient
                   .asUser(contactEnvelopes[i].message.user)

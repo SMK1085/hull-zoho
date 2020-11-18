@@ -344,6 +344,14 @@
       "format": "select",
       "enum": ["Leads", "Contacts"],
       "default": "Leads"
+    },
+    {
+      "name": "notes_events",
+      "title": "Events Selection",
+      "type": "array",
+      "format": "event",
+      "description": "Select the events you want to synchronize as notes to Zoho.",
+      "default": []
     }
   ],
   "json": [{
@@ -497,6 +505,13 @@
         "json.fetch_all_accounts",
         "private_settings.account_synchronized_segments",
         "private_settings.mapping_out_account"
+      ]
+    },
+    {
+      "title": "Notes",
+      "description": "Configure how Hull Events are synchronized with Notes in Zoho.",
+      "properties": [
+        "private_settings.notes_events"
       ]
     },
     {
