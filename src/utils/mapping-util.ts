@@ -206,7 +206,7 @@ export class MappingUtil {
     }
 
     const filteredEvents = events.filter((e) => {
-      return this.appSettings.notes_events?.includes(e.event);
+      return this.appSettings.notes_events!.includes(e.event);
     });
 
     if (filteredEvents.length === 0) {
