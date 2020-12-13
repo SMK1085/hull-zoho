@@ -158,7 +158,7 @@ Please note that `Account_Name` or `name` is not a unique identifier in Hull. He
 
 ## Roadmap
 
-The following table describes the current roadmap. If you like to request additions, please use the [GitHub Issues Page](https://github.com/SMK1085/hull-zoho/issues).
+The following table describes the current roadmap. If you like to request additions, please use the [GitHub Issues Page](https://github.com/hull/hull-zoho/issues).
 
 | Priority | Estimated Delivery Date | Feature Description                                           |
 | -------- | ----------------------- | ------------------------------------------------------------- |
