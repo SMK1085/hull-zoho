@@ -206,7 +206,10 @@ export class SyncAgent {
             responseLeads.data!.data,
             async (d: Schema$ZohoRecord) => {
               if (d.status === "success") {
-                const userIdent = leadEnvelopes[i].message.user;
+                const userIdent = {
+                  ...leadEnvelopes[i].message.user,
+                  ...{ anonymous_id: `zoho-lead:${d.details.id}`}
+                };
                 const attribs = mappingUtil.mapZohoRecordToHullAttributes(
                   "Leads",
                   d.details,
@@ -258,7 +261,10 @@ export class SyncAgent {
             responseContacts.data!.data,
             async (d: Schema$ZohoRecord) => {
               if (d.status === "success") {
-                const userIdent = contactEnvelopes[i].message.user;
+                const userIdent = {
+                  ...contactEnvelopes[i].message.user,
+                  ...{ anonymous_id: `zoho-contact:${d.details.id}`}
+                };
                 const attribs = mappingUtil.mapZohoRecordToHullAttributes(
                   "Contacts",
                   d.details,
