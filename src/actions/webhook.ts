@@ -6,6 +6,7 @@ import { Logger } from "winston";
 
 export const webhookActionFactory = (): RequestHandler => {
   return async (req: Request, res: Response): Promise<unknown> => {
+    res.status(200).json({ ok: true });
     let logger: Logger | undefined;
     let correlationKey: string | undefined;
     try {
@@ -13,7 +14,6 @@ export const webhookActionFactory = (): RequestHandler => {
       logger = scope.resolve<Logger>("logger");
       correlationKey = scope.resolve<string>("correlationKey");
       const syncAgent = new SyncAgent(scope);
-      res.status(200).json({ ok: true });
       await syncAgent.handleWebhook(req.body as any);
       return Promise.resolve(true);
     } catch (error) {
