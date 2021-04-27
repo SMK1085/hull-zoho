@@ -219,6 +219,12 @@ export class MappingUtil {
         content += `${k}: ${v}`;
         content += "\n";
       });
+      const pageUrl = get(e, "context.page.url");
+      if (!!pageUrl) {
+        content += `page_url: ${pageUrl}`;
+        content += "\n";
+      }
+
       result.push({
         Note_Content: content,
         Parent_Id: parentId,
