@@ -266,10 +266,15 @@ export class MappingUtil {
                 });
               });
             } else {
-              set(result, mapping.hull!.replace("traits_", ""), {
+              const hullAttributeName = mapping.hull!.replace("traits_", "");
+              const zohoValue = expression.evaluate(data);
+              if ((isNil(zohoValue) || zohoValue === "") && (hullAttributeName === "first_name" || hullAttributeName  === "last_name")) {
+                return;
+              }
+              set(result, hullAttributeName, {
                 value: this.mapZohoValueToHullValue(
                   fieldDef,
-                  expression.evaluate(data),
+                  zohoValue,
                 ),
                 operation: mapping.overwrite === false ? "setIfNull" : "set",
               });
@@ -318,10 +323,15 @@ export class MappingUtil {
                 });
               });
             } else {
-              set(result, mapping.hull!.replace("traits_", ""), {
+              const hullAttributeName = mapping.hull!.replace("traits_", "");
+              const zohoValue = expression.evaluate(data);
+              if ((isNil(zohoValue) || zohoValue === "") && (hullAttributeName === "first_name" || hullAttributeName  === "last_name")) {
+                return;
+              }
+              set(result, hullAttributeName, {
                 value: this.mapZohoValueToHullValue(
                   fieldDef,
-                  expression.evaluate(data),
+                  zohoValue,
                 ),
                 operation: mapping.overwrite === false ? "setIfNull" : "set",
               });
